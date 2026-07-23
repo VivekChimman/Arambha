@@ -33,8 +33,8 @@ export function RoadmapView({ roadmap, onRestart }: { roadmap: Roadmap; onRestar
 
       {/* The three paths */}
       <div className="mt-10 grid gap-4 sm:grid-cols-3">
-        {roadmap.paths.map((p) => (
-          <div key={p.id} className="card flex flex-col p-6">
+        {roadmap.paths.map((p, i) => (
+          <div key={`${p.title}-${i}`} className="card flex flex-col p-6">
             <div className="flex items-center justify-between">
               <span className={`rounded-pill px-2.5 py-1 text-xs font-medium ${ROLE_STYLE[p.role]}`}>
                 {p.role}
@@ -46,13 +46,30 @@ export function RoadmapView({ roadmap, onRestart }: { roadmap: Roadmap; onRestar
             <h2 className="mt-4 font-display text-xl leading-snug text-fg">{p.title}</h2>
             <p className="mt-2 text-sm leading-relaxed text-fg-mute">{p.summary}</p>
             {p.why && (
-              <p className="mt-3 flex-1 border-t border-line-soft pt-3 text-sm leading-relaxed text-fg-dim">
+              <p className="mt-3 border-t border-line-soft pt-3 text-sm leading-relaxed text-fg-dim">
                 <span className="font-mono text-[10px] uppercase tracking-wider text-accent">
                   Why this fits you
                 </span>
                 <span className="mt-1 block">{p.why}</span>
               </p>
             )}
+            <div className="mt-auto flex flex-wrap items-center gap-2 pt-4">
+              {p.cost && (
+                <span className="rounded-pill bg-surface-2 px-2.5 py-1 text-[11px] text-fg-dim">
+                  {p.cost}
+                </span>
+              )}
+              {p.sourceUrl && (
+                <a
+                  href={p.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-pill border border-line px-2.5 py-1 text-[11px] text-accent transition-colors hover:bg-surface-2"
+                >
+                  Source ↗
+                </a>
+              )}
+            </div>
           </div>
         ))}
       </div>
@@ -88,10 +105,34 @@ export function RoadmapView({ roadmap, onRestart }: { roadmap: Roadmap; onRestar
       </ol>
 
       {/* Cashflow note */}
-      <div className="mt-6 rounded-card border border-line bg-surface/50 p-5">
-        <p className="font-mono text-[11px] uppercase tracking-widest text-accent">Funding the restart</p>
-        <p className="mt-2 text-sm leading-relaxed text-fg-dim">{roadmap.cashflowTip}</p>
-      </div>
+      {roadmap.cashflowTip && (
+        <div className="mt-6 rounded-card border border-line bg-surface/50 p-5">
+          <p className="font-mono text-[11px] uppercase tracking-widest text-accent">Funding the restart</p>
+          <p className="mt-2 text-sm leading-relaxed text-fg-dim">{roadmap.cashflowTip}</p>
+        </div>
+      )}
+
+      {/* Sources — researched roadmaps only */}
+      {roadmap.sources && roadmap.sources.length > 0 && (
+        <div className="mt-8">
+          <h3 className="font-mono text-xs uppercase tracking-[0.2em] text-fg-mute">Sources</h3>
+          <ul className="mt-4 space-y-2">
+            {roadmap.sources.map((s, i) => (
+              <li key={s.url} className="flex gap-3 text-sm">
+                <span className="font-mono text-xs text-fg-mute">{String(i + 1).padStart(2, "0")}</span>
+                <a
+                  href={s.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="truncate text-fg-dim underline decoration-line underline-offset-2 transition-colors hover:text-accent"
+                >
+                  {s.title}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Report upsell */}
       <div className="ring-accent relative mt-10 overflow-hidden rounded-card border border-line bg-surface p-8">
@@ -112,8 +153,9 @@ export function RoadmapView({ roadmap, onRestart }: { roadmap: Roadmap; onRestar
       </div>
 
       <p className="mt-6 text-xs text-fg-mute">
-        Grounded from {roadmap.groundedFrom} options you’re actually eligible for. Nothing here was
-        invented.
+        {roadmap.researched
+          ? `Researched live from ${roadmap.groundedFrom} sources and grounded in the ones linked above — nothing invented.`
+          : `Grounded from ${roadmap.groundedFrom} options you’re actually eligible for. Nothing here was invented.`}
       </p>
 
       <div className="mt-8 flex flex-col gap-3 sm:flex-row">

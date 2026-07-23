@@ -42,14 +42,25 @@ const SITUATION_BOOST: Record<string, PathwayKind[]> = {
 };
 
 export interface ChosenPath {
-  id: string;
-  kind: PathwayKind;
-  kindLabel: string;
+  kindLabel: string; // display tag: "Job" | "Skill" | "Exam" | "Business" | ...
   title: string;
   summary: string;
-  why?: string; // optional per-path personalisation from the LLM layer
+  why?: string; // why it fits THEM (LLM layers)
   role: "Earn" | "Build" | "Grow";
   scamWarning: boolean;
+  // Deterministic-only (pathways.ts):
+  id?: string;
+  kind?: PathwayKind;
+  // Researched-only (deep-research engine):
+  cost?: string;
+  eligibility?: string;
+  sourceUrl?: string;
+  firstSteps?: string[];
+}
+
+export interface RoadmapSource {
+  title: string;
+  url: string;
 }
 
 export interface Phase {
@@ -65,7 +76,10 @@ export interface Roadmap {
   phases: Phase[];
   cashflowTip: string;
   warnings: string[];
-  groundedFrom: number; // size of the eligible shortlist, for transparency
+  groundedFrom: number; // deterministic: eligible-shortlist size · researched: sources used
+  researched?: boolean; // true when produced by the deep-research engine
+  sources?: RoadmapSource[]; // citations (researched only)
+  modelId?: string; // which selected model produced it
 }
 
 /** Pathways this person is actually eligible for — the grounding source of truth. */

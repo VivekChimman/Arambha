@@ -108,7 +108,10 @@ export const INTAKE_QUESTIONS: Question[] = [
   },
 ];
 
+export type Mode = "seeker" | "builder";
+
 export interface IntakeAnswers {
+  mode: Mode; // "seeker" = find work · "builder" = build & monetize own thing
   age: string;
   situation: string;
   level: string;
@@ -156,6 +159,9 @@ export function validateAnswers(input: unknown): IntakeAnswers | null {
     }
     clean.interest = raw.interest;
   }
+
+  // Mode is optional on the wire; defaults to seeker until the UI toggle lands.
+  clean.mode = raw.mode === "builder" ? "builder" : "seeker";
 
   return clean as unknown as IntakeAnswers;
 }

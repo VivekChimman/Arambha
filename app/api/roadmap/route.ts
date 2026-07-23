@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { validateAnswers } from "@/lib/intake";
 import { composeRoadmap, eligiblePathways } from "@/lib/composeRoadmap";
 import { enhanceRoadmap, llmAvailable } from "@/lib/roadmapLLM";
+import { generateResearchedRoadmap, researchEngineReady } from "@/lib/roadmap/generate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,20 +36,30 @@ export async function POST(request: Request) {
       );
     }
 
-    // Deterministic baseline always exists. If the LLM layer is available, let it
-    // personalise on top — but any failure/refusal silently keeps the baseline.
+    // Tiered generation, each degrading to the next:
+    //   1) deep-research engine (Tavily/… + selected LLM, grounded on retrieved urls)
+    //   2) grounded-static LLM personalisation (when no search is configured)
+    //   3) deterministic composer — the always-available baseline
     let roadmap = composeRoadmap(answers);
-    if (llmAvailable()) {
+    if (researchEngineReady()) {
+      const researched = await generateResearchedRoadmap(answers).catch(() => null);
+      if (researched) roadmap = researched;
+    } else if (llmAvailable()) {
       const enhanced = await enhanceRoadmap(answers).catch(() => null);
       if (enhanced) roadmap = enhanced;
     }
 
-    // Grounding check — the response may only reference eligible, real pathways.
-    // This guards the LLM path too: a hallucinated id here reverts to a safe error.
-    const allowed = new Set(eligiblePathways(answers).map((p) => p.id));
-    const grounded = roadmap.paths.every((p) => allowed.has(p.id));
-    if (!grounded || roadmap.paths.length === 0) {
-      // Should be impossible with the deterministic composer; fail safe if it ever isn't.
+    // Grounding check, by engine:
+    //  - researched: grounded on retrieved sourceUrls (validated in generate) — every path must carry one.
+    //  - deterministic/static: every path id must be an eligible, real pathway.
+    let grounded: boolean;
+    if (roadmap.researched) {
+      grounded = roadmap.paths.length > 0 && roadmap.paths.every((p) => Boolean(p.sourceUrl));
+    } else {
+      const allowed = new Set(eligiblePathways(answers).map((p) => p.id));
+      grounded = roadmap.paths.length > 0 && roadmap.paths.every((p) => p.id != null && allowed.has(p.id));
+    }
+    if (!grounded) {
       return NextResponse.json(
         { error: "We couldn’t build a grounded roadmap from those answers just yet." },
         { status: 422 },
