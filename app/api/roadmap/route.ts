@@ -1,11 +1,17 @@
 import { NextResponse } from "next/server";
+import { env } from "@/lib/env";
 import { validateAnswers } from "@/lib/intake";
 import { composeRoadmap, eligiblePathways } from "@/lib/composeRoadmap";
 import { enhanceRoadmap, llmAvailable } from "@/lib/roadmapLLM";
+import { researchAvailable } from "@/lib/research";
+import { selectedModel } from "@/lib/llm";
 import { generateResearchedRoadmap, researchEngineReady } from "@/lib/roadmap/generate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// Deep research (search + extract + model) can take ~15–25s — raise the serverless
+// function limit so Vercel doesn't kill it (default would time it out).
+export const maxDuration = 60;
 
 /**
  * POST /api/roadmap — turn intake answers into a grounded 90-day roadmap.
@@ -36,18 +42,42 @@ export async function POST(request: Request) {
       );
     }
 
+    // Temporary, gated diagnostic (?debug=1) — booleans/counts only, no secrets.
+    const debugOn = new URL(request.url).searchParams.get("debug") === "1";
+    const steps: string[] | undefined = debugOn ? [] : undefined;
+
     // Tiered generation, each degrading to the next:
     //   1) deep-research engine (Tavily/… + selected LLM, grounded on retrieved urls)
     //   2) grounded-static LLM personalisation (when no search is configured)
     //   3) deterministic composer — the always-available baseline
     let roadmap = composeRoadmap(answers);
     if (researchEngineReady()) {
-      const researched = await generateResearchedRoadmap(answers).catch(() => null);
+      const researched = await generateResearchedRoadmap(answers, steps).catch((e) => {
+        steps?.push(`caught: ${e instanceof Error ? e.message : String(e)}`);
+        return null;
+      });
       if (researched) roadmap = researched;
     } else if (llmAvailable()) {
       const enhanced = await enhanceRoadmap(answers).catch(() => null);
       if (enhanced) roadmap = enhanced;
     }
+
+    const debug = debugOn
+      ? {
+          flags: {
+            tavily: env.hasTavily,
+            serper: env.hasSerper,
+            firecrawl: env.hasFirecrawl,
+            gemini: env.hasGemini,
+            searxng: env.hasSearxng,
+          },
+          llmAvailable: llmAvailable(),
+          researchAvailable: researchAvailable(),
+          researchEngineReady: researchEngineReady(),
+          model: selectedModel().id,
+          steps,
+        }
+      : undefined;
 
     // Grounding check, by engine:
     //  - researched: grounded on retrieved sourceUrls (validated in generate) — every path must carry one.
@@ -66,7 +96,7 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json({ roadmap });
+    return NextResponse.json({ roadmap, ...(debug ? { _debug: debug } : {}) });
   } catch {
     // Never leak internals.
     return NextResponse.json(
