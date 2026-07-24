@@ -64,7 +64,10 @@ export async function generateResearchedRoadmap(a: IntakeAnswers): Promise<Roadm
 
   // 1) Retrieve.
   const plan = buildResearchPlan(a);
-  const sources = await runDeepResearch(plan).catch(() => [] as Source[]);
+  const sources = await runDeepResearch(plan).catch((e) => {
+    console.error("[research] search error:", e instanceof Error ? e.message : e);
+    return [] as Source[];
+  });
   if (sources.length < 3) return null; // too little to ground on → fallback
 
   const allowed = new Map(sources.map((s) => [s.url, s]));
@@ -83,7 +86,8 @@ export async function generateResearchedRoadmap(a: IntakeAnswers): Promise<Roadm
         },
       ],
     });
-  } catch {
+  } catch (e) {
+    console.error("[research] llm error:", e instanceof Error ? e.message : e);
     return null;
   }
 

@@ -40,7 +40,7 @@ export const DEFAULT_MODEL_ID = "gemini-3-5-flash";
 
 export const LLM = {
   timeoutMs: 60_000, // deep-research synthesis can be long
-  maxTokens: 2000,
+  maxTokens: 8000, // headroom: Gemini "thinking" models spend part of this on reasoning
   temperature: 0.4,
 } as const;
 

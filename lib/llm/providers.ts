@@ -98,6 +98,9 @@ const gemini: Provider = {
         generationConfig: {
           temperature: opts.temperature ?? LLM.temperature,
           maxOutputTokens: opts.maxTokens ?? LLM.maxTokens,
+          // Disable "thinking" for this structured JSON task so the whole output
+          // budget goes to the answer (Gemini 3.x Flash otherwise truncates).
+          thinkingConfig: { thinkingBudget: 0 },
         },
       }),
     });
