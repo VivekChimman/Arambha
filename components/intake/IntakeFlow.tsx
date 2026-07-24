@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   INTAKE_QUESTIONS,
   type IntakeAnswers,
+  type Mode,
   type QuestionId,
 } from "@/lib/intake";
 import type { Roadmap } from "@/lib/composeRoadmap";
@@ -19,6 +20,7 @@ const TOTAL_STEPS = INTAKE_QUESTIONS.length + 1; // + review
 
 export function IntakeFlow() {
   const [phase, setPhase] = useState<Phase>("form");
+  const [mode, setMode] = useState<Mode | null>(null);
   const [stepIndex, setStepIndex] = useState(0);
   const [answers, setAnswers] = useState<Partial<Record<QuestionId, string>>>({});
   const [roadmap, setRoadmap] = useState<Roadmap | null>(null);
@@ -52,6 +54,10 @@ export function IntakeFlow() {
   }
 
   function goBack() {
+    if (stepIndex === 0) {
+      setMode(null); // back out to the track chooser
+      return;
+    }
     setStepIndex((i) => Math.max(i - 1, 0));
   }
 
@@ -67,7 +73,7 @@ export function IntakeFlow() {
       const res = await fetch("/api/roadmap", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(answers),
+        body: JSON.stringify({ ...answers, mode: mode ?? "seeker" }),
       });
       const data = await res.json();
       if (!res.ok || !data.roadmap) {
@@ -88,6 +94,7 @@ export function IntakeFlow() {
     setAnswers({});
     setRoadmap(null);
     setStepIndex(0);
+    setMode(null);
     setPhase("form");
     window.scrollTo({ top: 0 });
   }
@@ -110,14 +117,18 @@ export function IntakeFlow() {
           </Link>
           {phase !== "result" && (
             <p className="font-mono text-xs uppercase tracking-widest text-fg-mute">
-              {onReview ? "Review" : `Step ${stepIndex + 1} of ${TOTAL_STEPS}`}
+              {mode === null
+                ? "Choose a track"
+                : onReview
+                  ? "Review"
+                  : `Step ${stepIndex + 1} of ${TOTAL_STEPS}`}
             </p>
           )}
           <Link href="/" className="text-sm text-fg-mute transition-colors hover:text-fg">
             Exit
           </Link>
         </div>
-        {phase === "form" && (
+        {phase === "form" && mode !== null && (
           <div className="h-0.5 w-full bg-line">
             <div
               className="h-full bg-accent-gradient transition-[width] duration-500 ease-out"
@@ -153,7 +164,16 @@ export function IntakeFlow() {
 
         {phase === "result" && roadmap && <RoadmapView roadmap={roadmap} onRestart={restart} />}
 
-        {phase === "form" && (
+        {phase === "form" && mode === null && (
+          <ModeSelect
+            onChoose={(m) => {
+              setMode(m);
+              setStepIndex(0);
+            }}
+          />
+        )}
+
+        {phase === "form" && mode !== null && (
           <form
             className="mx-auto max-w-xl"
             onSubmit={(e) => {
@@ -175,15 +195,9 @@ export function IntakeFlow() {
 
             <div className="mt-10 flex items-center justify-between gap-3">
               <div>
-                {stepIndex > 0 ? (
-                  <Button type="button" onClick={goBack} variant="ghost" size="lg">
-                    ← Back
-                  </Button>
-                ) : (
-                  <Link href="/" className="text-sm text-fg-mute transition-colors hover:text-fg">
-                    Cancel
-                  </Link>
-                )}
+                <Button type="button" onClick={goBack} variant="ghost" size="lg">
+                  ← Back
+                </Button>
               </div>
 
               <div className="flex items-center gap-3">
@@ -203,6 +217,53 @@ export function IntakeFlow() {
           </form>
         )}
       </main>
+    </div>
+  );
+}
+
+function ModeSelect({ onChoose }: { onChoose: (mode: Mode) => void }) {
+  const options: { mode: Mode; title: string; body: string; tag: string }[] = [
+    {
+      mode: "seeker",
+      tag: "Find work",
+      title: "A way to earn or work",
+      body: "Jobs, a paying skill, a public exam, study, or small work — grounded in real, current options and matched to where you are.",
+    },
+    {
+      mode: "builder",
+      tag: "Build my own",
+      title: "Something of my own to build",
+      body: "A small business, service, or online venture you can start lean and monetize — fitted to your situation, with real demand and first steps.",
+    },
+  ];
+
+  return (
+    <div className="mx-auto max-w-2xl">
+      <h1 className="text-display-md text-fg">What are you here for?</h1>
+      <p className="mt-3 text-sm leading-relaxed text-fg-mute">
+        Pick a track. You can switch anytime — both build you a grounded 90-day roadmap.
+      </p>
+
+      <div className="mt-8 grid gap-4 sm:grid-cols-2">
+        {options.map((o) => (
+          <button
+            key={o.mode}
+            type="button"
+            onClick={() => onChoose(o.mode)}
+            className="card group flex flex-col p-6 text-left transition-all hover:border-fg-mute/40 hover:bg-surface-2"
+          >
+            <span className="font-mono text-[11px] uppercase tracking-widest text-accent">{o.tag}</span>
+            <h2 className="mt-3 font-display text-xl text-fg">{o.title}</h2>
+            <p className="mt-2 flex-1 text-sm leading-relaxed text-fg-mute">{o.body}</p>
+            <span className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-fg">
+              Choose this
+              <span aria-hidden className="text-accent transition-transform group-hover:translate-x-0.5">
+                →
+              </span>
+            </span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
