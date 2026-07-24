@@ -59,23 +59,15 @@ function sourcesBlock(sources: Source[]): string {
     .join("\n\n---\n\n");
 }
 
-export async function generateResearchedRoadmap(
-  a: IntakeAnswers,
-  debug?: string[],
-): Promise<Roadmap | null> {
-  if (!researchEngineReady()) {
-    debug?.push("engine-not-ready");
-    return null;
-  }
+export async function generateResearchedRoadmap(a: IntakeAnswers): Promise<Roadmap | null> {
+  if (!researchEngineReady()) return null;
 
   // 1) Retrieve.
   const plan = buildResearchPlan(a);
   const sources = await runDeepResearch(plan).catch((e) => {
     console.error("[research] search error:", e instanceof Error ? e.message : e);
-    debug?.push(`search-error: ${e instanceof Error ? e.message : e}`);
     return [] as Source[];
   });
-  debug?.push(`sources: ${sources.length}`);
   if (sources.length < 3) return null; // too little to ground on → fallback
 
   const allowed = new Map(sources.map((s) => [s.url, s]));
@@ -96,23 +88,17 @@ export async function generateResearchedRoadmap(
     });
   } catch (e) {
     console.error("[research] llm error:", e instanceof Error ? e.message : e);
-    debug?.push(`llm-error: ${e instanceof Error ? e.message : e}`);
     return null;
   }
-  debug?.push(`out-len: ${out.text.length}`);
 
   const parsed = parseJson(out.text);
-  if (!parsed || !Array.isArray(parsed.paths)) {
-    debug?.push("parse-fail");
-    return null;
-  }
+  if (!parsed || !Array.isArray(parsed.paths)) return null;
 
   // 3) GROUNDING VALIDATION — keep only paths that cite a retrieved url.
   const grounded = (parsed.paths as RawPath[])
     .filter((p) => p.title && p.sourceUrl && allowed.has(p.sourceUrl))
     .sort((x, y) => (ROLE_RANK[x.role ?? "Grow"] ?? 2) - (ROLE_RANK[y.role ?? "Grow"] ?? 2))
     .slice(0, 3);
-  debug?.push(`grounded: ${grounded.length}`);
   if (grounded.length < 2) return null; // not enough real, cited paths → fallback
 
   const roles: Array<"Earn" | "Build" | "Grow"> = ["Earn", "Build", "Grow"];

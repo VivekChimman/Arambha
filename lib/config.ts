@@ -51,6 +51,6 @@ export const LLM = {
 export const RESEARCH = {
   maxQueries: 5, // search queries built from one intake
   resultsPerQuery: 5, // results kept per query
-  extractTopN: 6, // pages Firecrawl deep-extracts (optional enrichment)
+  extractTopN: 3, // pages Firecrawl deep-extracts (optional enrichment; kept low for latency)
   searchTimeoutMs: 20_000,
 } as const;
