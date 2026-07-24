@@ -144,7 +144,7 @@ export function IntakeFlow() {
       </header>
 
       <main id="main" className="shell relative py-14 sm:py-20">
-        {phase === "submitting" && <Submitting />}
+        {phase === "submitting" && <Submitting mode={mode ?? "seeker"} />}
 
         {phase === "error" && (
           <div className="mx-auto max-w-xl text-center">
@@ -268,24 +268,82 @@ function ModeSelect({ onChoose }: { onChoose: (mode: Mode) => void }) {
   );
 }
 
-function Submitting() {
+function Submitting({ mode }: { mode: Mode }) {
+  // Staged progress mirroring the real pipeline: query → search → extract →
+  // ground → synthesize. Advanced on a timer (the backend doesn't stream), and
+  // the last stage holds until the response lands.
+  const stages = [
+    "Understanding where you are",
+    mode === "builder"
+      ? "Searching for real demand and what people pay for"
+      : "Searching the web for real, current options",
+    "Reading and verifying the sources",
+    "Grounding your three paths",
+    "Writing your 90-day plan",
+  ];
+  const [active, setActive] = useState(0);
+
+  useEffect(() => {
+    const marks = [1600, 5000, 10000, 14000]; // advance to stage 1..4
+    const timers = marks.map((ms, i) => setTimeout(() => setActive(i + 1), ms));
+    return () => timers.forEach(clearTimeout);
+  }, []);
+
   return (
-    <div className="grid min-h-[50vh] place-items-center" role="status" aria-live="polite">
-      <div className="flex flex-col items-center gap-5 text-center">
-        <div className="flex items-center gap-1.5" aria-hidden>
-          {[0, 1, 2].map((i) => (
-            <span
-              key={i}
-              className="h-2.5 w-2.5 animate-rise rounded-full bg-accent"
-              style={{ animationDelay: `${i * 130}ms`, animationDuration: "0.9s" }}
-            />
-          ))}
-        </div>
-        <p className="font-display text-xl text-fg">Grounding your three paths…</p>
-        <p className="max-w-xs text-sm text-fg-mute">
-          Matching your answers against real, eligible options.
-        </p>
-      </div>
+    <div className="mx-auto max-w-md py-10" role="status" aria-live="polite">
+      <p className="eyebrow">
+        <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+        Researching live
+      </p>
+      <h1 className="mt-5 text-display-md text-fg">Building your roadmap.</h1>
+      <p className="mt-3 text-sm leading-relaxed text-fg-mute">
+        We’re reading real sources for this — not guessing. It takes a few seconds.
+      </p>
+
+      <ul className="mt-8 space-y-4">
+        {stages.map((label, i) => {
+          const done = i < active;
+          const current = i === active;
+          return (
+            <li key={label} className="flex items-center gap-3">
+              <span
+                aria-hidden
+                className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border transition-colors ${
+                  done
+                    ? "border-accent bg-accent text-bg"
+                    : current
+                      ? "border-accent text-accent"
+                      : "border-line text-fg-mute"
+                }`}
+              >
+                {done ? (
+                  <svg width="12" height="12" viewBox="0 0 14 14">
+                    <path
+                      d="M2 7.5L5.5 11L12 3"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                ) : current ? (
+                  <span className="h-2 w-2 animate-ping rounded-full bg-accent" />
+                ) : (
+                  <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                )}
+              </span>
+              <span
+                className={`text-sm transition-colors ${
+                  done ? "text-fg-dim" : current ? "text-fg" : "text-fg-mute"
+                }`}
+              >
+                {label}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
