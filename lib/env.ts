@@ -31,8 +31,11 @@ export const env = {
   hasRedis: Boolean(
     process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN,
   ),
+  // Supabase URL + anon key are safe to expose (anon is RLS-protected).
+  supabaseUrl: str(process.env.NEXT_PUBLIC_SUPABASE_URL),
+  supabaseAnonKey: str(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
   hasSupabase: Boolean(
-    process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY,
+    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   ),
   // DODO is "configured" only with an API key AND a product id. Absent → demo mode.
   hasDodo: Boolean(process.env.DODO_PAYMENTS_API_KEY && process.env.DODO_PRO_PRODUCT_ID),
@@ -53,8 +56,6 @@ export const serverEnv = {
   firecrawlKey: str(process.env.FIRECRAWL_API_KEY),
   serperKey: str(process.env.SERPER_API_KEY),
 
-  supabaseUrl: str(process.env.SUPABASE_URL),
-  supabaseAnonKey: str(process.env.SUPABASE_ANON_KEY),
   supabaseServiceKey: str(process.env.SUPABASE_SERVICE_ROLE_KEY),
 
   redisUrl: str(process.env.UPSTASH_REDIS_REST_URL),
