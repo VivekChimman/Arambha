@@ -34,6 +34,8 @@ export const env = {
   hasSupabase: Boolean(
     process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY,
   ),
+  // DODO is "configured" only with an API key AND a product id. Absent → demo mode.
+  hasDodo: Boolean(process.env.DODO_PAYMENTS_API_KEY && process.env.DODO_PRO_PRODUCT_ID),
 } as const;
 
 /** SERVER-ONLY raw secrets. Do not import from client components. */
@@ -58,4 +60,11 @@ export const serverEnv = {
   redisUrl: str(process.env.UPSTASH_REDIS_REST_URL),
   redisToken: str(process.env.UPSTASH_REDIS_REST_TOKEN),
   ipHashSalt: str(process.env.IP_HASH_SALT),
+
+  dodoApiKey: str(process.env.DODO_PAYMENTS_API_KEY),
+  // Respect the env; DODO SDK only accepts these two literals.
+  dodoEnvironment: process.env.DODO_PAYMENTS_ENVIRONMENT === "live_mode" ? "live_mode" : "test_mode",
+  dodoWebhookSecret: str(process.env.DODO_PAYMENTS_WEBHOOK_SECRET),
+  dodoProductId: str(process.env.DODO_PRO_PRODUCT_ID),
+  dodoReturnUrl: str(process.env.DODO_PAYMENTS_RETURN_URL),
 } as const;

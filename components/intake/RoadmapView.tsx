@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Roadmap } from "@/lib/composeRoadmap";
-import { LinkButton, Button } from "@/components/ui/Button";
+import { Button } from "@/components/ui/Button";
 
 const ROLE_STYLE: Record<string, string> = {
   Earn: "bg-accent/15 text-accent",
@@ -8,7 +8,17 @@ const ROLE_STYLE: Record<string, string> = {
   Grow: "bg-fg/10 text-fg-dim",
 };
 
-export function RoadmapView({ roadmap, onRestart }: { roadmap: Roadmap; onRestart: () => void }) {
+export function RoadmapView({
+  roadmap,
+  onRestart,
+  onUnlock,
+  unlocking,
+}: {
+  roadmap: Roadmap;
+  onRestart: () => void;
+  onUnlock?: () => void;
+  unlocking?: boolean;
+}) {
   return (
     <div className="mx-auto w-full max-w-3xl">
       <span className="pill">
@@ -134,23 +144,34 @@ export function RoadmapView({ roadmap, onRestart }: { roadmap: Roadmap; onRestar
         </div>
       )}
 
-      {/* Report upsell */}
-      <div className="ring-accent relative mt-10 overflow-hidden rounded-card border border-line bg-surface p-8">
-        <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-radial-glow" />
-        <div className="relative flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-center">
-          <div className="max-w-md">
-            <h3 className="font-display text-2xl text-fg">Want the full, step-by-step report?</h3>
-            <p className="mt-2 text-sm leading-relaxed text-fg-dim">
-              Week-by-week actions, direct links to real courses and exams, and a saved copy you can
-              return to. One-time — <span className="accent-text font-medium">₹199</span>, no
-              subscription.
-            </p>
+      {/* Report upsell — only on the free teaser (hidden once it's the paid report) */}
+      {!roadmap.researched && onUnlock && (
+        <div className="ring-accent relative mt-10 overflow-hidden rounded-card border border-line bg-surface p-8">
+          <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-radial-glow" />
+          <div className="relative flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-center">
+            <div className="max-w-md">
+              <h3 className="font-display text-2xl text-fg">Unlock your researched report</h3>
+              <p className="mt-2 text-sm leading-relaxed text-fg-dim">
+                We’ll research the web live for <span className="text-fg">your</span> situation —
+                specific courses, exams and jobs with real links and costs, cited so you can check
+                them. One-time <span className="accent-text font-medium">₹199</span>, no subscription.
+              </p>
+            </div>
+            <Button size="lg" className="shrink-0" onClick={onUnlock} disabled={unlocking}>
+              {unlocking ? "Starting checkout…" : "Unlock — ₹199"}
+            </Button>
           </div>
-          <LinkButton href="/start" size="lg" className="shrink-0">
-            Unlock the full report
-          </LinkButton>
         </div>
-      </div>
+      )}
+
+      {roadmap.researched && (
+        <div className="mt-10 flex items-center gap-3 rounded-card border border-accent/30 bg-accent/[0.06] p-4">
+          <svg width="16" height="16" viewBox="0 0 14 14" aria-hidden className="shrink-0 text-accent">
+            <path d="M2 7.5L5.5 11L12 3" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <p className="text-sm text-fg-dim">Your full report — researched live and yours to keep.</p>
+        </div>
+      )}
 
       <p className="mt-6 text-xs text-fg-mute">
         {roadmap.researched

@@ -25,6 +25,7 @@ export function IntakeFlow() {
   const [answers, setAnswers] = useState<Partial<Record<QuestionId, string>>>({});
   const [roadmap, setRoadmap] = useState<Roadmap | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
+  const [unlocking, setUnlocking] = useState(false);
 
   const headingRef = useRef<HTMLDivElement | null>(null);
 
@@ -87,6 +88,25 @@ export function IntakeFlow() {
     } catch {
       setErrorMsg("We couldn’t reach the server. Check your connection and try again.");
       setPhase("error");
+    }
+  }
+
+  async function unlock() {
+    setUnlocking(true);
+    try {
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...answers, mode: mode ?? "seeker" }),
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url; // DODO checkout, or straight to /report in demo
+        return;
+      }
+      setUnlocking(false);
+    } catch {
+      setUnlocking(false);
     }
   }
 
@@ -162,7 +182,9 @@ export function IntakeFlow() {
           </div>
         )}
 
-        {phase === "result" && roadmap && <RoadmapView roadmap={roadmap} onRestart={restart} />}
+        {phase === "result" && roadmap && (
+          <RoadmapView roadmap={roadmap} onRestart={restart} onUnlock={unlock} unlocking={unlocking} />
+        )}
 
         {phase === "form" && mode === null && (
           <ModeSelect
