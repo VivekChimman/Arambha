@@ -9,6 +9,17 @@
 const str = (v: string | undefined, fallback = ""): string =>
   v && v.length > 0 ? v : fallback;
 
+// Normalise a base URL to its origin — tolerates a pasted `/rest/v1/` or trailing
+// slash (a common Supabase copy-paste mistake) that would break client paths.
+const originOf = (v: string | undefined): string => {
+  if (!v) return "";
+  try {
+    return new URL(v).origin;
+  } catch {
+    return v.replace(/\/+$/, "");
+  }
+};
+
 export const env = {
   appUrl: str(process.env.NEXT_PUBLIC_APP_URL, "http://localhost:3000"),
 
@@ -32,7 +43,7 @@ export const env = {
     process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN,
   ),
   // Supabase URL + anon key are safe to expose (anon is RLS-protected).
-  supabaseUrl: str(process.env.NEXT_PUBLIC_SUPABASE_URL),
+  supabaseUrl: originOf(process.env.NEXT_PUBLIC_SUPABASE_URL),
   supabaseAnonKey: str(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
   hasSupabase: Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,

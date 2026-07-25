@@ -27,13 +27,19 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     try {
       const supabase = createClient();
       if (isSignup) {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: { emailRedirectTo: `${location.origin}/auth/callback?next=${encodeURIComponent(next)}` },
         });
         if (error) throw error;
-        setNotice("Check your email to confirm your account, then sign in.");
+        if (data.session) {
+          // Confirmation disabled → signed in immediately.
+          router.push(next);
+          router.refresh();
+        } else {
+          setNotice("Check your email to confirm your account, then sign in.");
+        }
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
