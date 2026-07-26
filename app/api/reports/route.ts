@@ -5,6 +5,7 @@ import { composeRoadmap, eligiblePathways, type Roadmap } from "@/lib/composeRoa
 import { generateResearchedRoadmap } from "@/lib/roadmap/generate";
 import { createClient } from "@/lib/supabase/server";
 import { getQuota, consumeQuota } from "@/lib/subscription";
+import { rateLimit, clientKey, acquireReportLock, releaseReportLock } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,6 +39,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Please sign in first.", signInRequired: true }, { status: 401 });
     }
 
+    // Rate limit before anything expensive. Keyed to the user, not the IP.
+    const limited = await rateLimit("report", clientKey(request, user.id));
+    if (!limited.allowed) {
+      return NextResponse.json(
+        { error: "That’s a lot of reports at once. Please try again in a little while." },
+        { status: 429, headers: { "Retry-After": String(limited.retryAfterSeconds) } },
+      );
+    }
+
     let body: unknown;
     try {
       body = await request.json();
@@ -53,71 +63,90 @@ export async function POST(request: Request) {
       );
     }
 
-    // ── Quota gate (server-side, never the client) ──────────────────────────
-    const quota = await getQuota(user.id);
-    if (!quota.allowed) {
+    // ── Single-flight: two parallel submissions could both pass the quota
+    // pre-check and each spend a credit. Only the first gets through.
+    const gotLock = await acquireReportLock(user.id);
+    if (!gotLock) {
       return NextResponse.json(
-        {
-          error: quota.active
-            ? "You’ve used all 10 reports this month. Your quota resets on your next renewal."
-            : "You’ve used your free report. Subscribe for 10 researched reports a month.",
-          needsSubscription: !quota.active,
-          quotaExhausted: true,
-        },
-        { status: 402 },
+        { error: "We’re already building a report for you. Give it a moment." },
+        { status: 429 },
       );
     }
 
-    // ── Generate. Research first; degrade to the deterministic composer. ─────
-    const researched = await generateResearchedRoadmap(answers).catch(() => null);
-    const roadmap: Roadmap = researched ?? composeRoadmap(answers);
-
-    // GROUNDING CHECK. The researched path is already validated inside
-    // generateResearchedRoadmap (cited urls ⊆ retrieved set); the deterministic
-    // path must only contain ids from the eligible shortlist.
-    if (!roadmap.researched) {
-      const allowed = new Set(eligiblePathways(answers).map((p) => p.id));
-      const grounded =
-        roadmap.paths.length > 0 && roadmap.paths.every((p) => p.id != null && allowed.has(p.id));
-      if (!grounded) {
+    try {
+      // ── Quota gate (server-side, never the client) ────────────────────────
+      const quota = await getQuota(user.id);
+      if (!quota.allowed) {
         return NextResponse.json(
-          { error: "We couldn’t build a grounded roadmap from those answers just yet." },
-          { status: 422 },
+          {
+            error: quota.active
+              ? "You’ve used all 10 reports this month. Your quota resets on your next renewal."
+              : "You’ve used your free report. Subscribe for 10 researched reports a month.",
+            needsSubscription: !quota.active,
+            quotaExhausted: true,
+          },
+          { status: 402 },
         );
       }
+
+      // ── Generate. Research first; degrade to the deterministic composer. ───
+      const researched = await generateResearchedRoadmap(answers).catch(() => null);
+      const roadmap: Roadmap = researched ?? composeRoadmap(answers);
+
+      // GROUNDING CHECK. The researched path is already validated inside
+      // generateResearchedRoadmap (cited urls ⊆ retrieved set); the deterministic
+      // path must only contain ids from the eligible shortlist.
+      if (!roadmap.researched) {
+        const allowed = new Set(eligiblePathways(answers).map((p) => p.id));
+        const grounded =
+          roadmap.paths.length > 0 &&
+          roadmap.paths.every((p) => p.id != null && allowed.has(p.id));
+        if (!grounded) {
+          return NextResponse.json(
+            { error: "We couldn’t build a grounded roadmap from those answers just yet." },
+            { status: 422 },
+          );
+        }
+      }
+
+      // ── Save for history (RLS: a user can only insert their own rows) ──────
+      const { data: saved, error: saveError } = await supabase
+        .from("reports")
+        .insert({
+          user_id: user.id,
+          title: reportTitle(answers),
+          mode: answers.mode,
+          answers,
+          roadmap,
+        })
+        .select("id")
+        .single();
+
+      if (saveError || !saved) {
+        console.error("[reports] save failed:", saveError?.message);
+        // The roadmap is good — return it inline rather than losing the user's work.
+        return NextResponse.json({
+          roadmap,
+          saved: false,
+          researched: Boolean(roadmap.researched),
+        });
+      }
+
+      // Charge only for a genuinely researched report.
+      if (roadmap.researched) {
+        await consumeQuota(user.id, quota.viaFree).catch((e) =>
+          console.error("[reports] quota consume failed:", e instanceof Error ? e.message : e),
+        );
+      }
+
+      return NextResponse.json({
+        id: saved.id,
+        saved: true,
+        researched: Boolean(roadmap.researched),
+      });
+    } finally {
+      await releaseReportLock(user.id);
     }
-
-    // ── Save for history (RLS: a user can only insert their own rows) ────────
-    const { data: saved, error: saveError } = await supabase
-      .from("reports")
-      .insert({
-        user_id: user.id,
-        title: reportTitle(answers),
-        mode: answers.mode,
-        answers,
-        roadmap,
-      })
-      .select("id")
-      .single();
-
-    if (saveError || !saved) {
-      console.error("[reports] save failed:", saveError?.message);
-      // The roadmap is good — return it inline rather than losing the user's work.
-      return NextResponse.json({ roadmap, saved: false, researched: Boolean(roadmap.researched) });
-    }
-
-    // Charge only for a genuinely researched report.
-    if (roadmap.researched) {
-      await consumeQuota(user.id, quota.viaFree).catch((e) =>
-        console.error("[reports] quota consume failed:", e instanceof Error ? e.message : e),
-      );
-    }
-
-    return NextResponse.json({
-      id: saved.id,
-      saved: true,
-      researched: Boolean(roadmap.researched),
-    });
   } catch (e) {
     console.error("[reports] error:", e instanceof Error ? e.message : e);
     return NextResponse.json(

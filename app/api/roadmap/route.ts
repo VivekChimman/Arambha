@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { validateAnswers } from "@/lib/intake";
 import { composeRoadmap, eligiblePathways } from "@/lib/composeRoadmap";
+import { rateLimit, clientKey } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,6 +17,15 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(request: Request) {
   try {
+    // Anonymous endpoint — limit by salted IP hash (never the raw IP).
+    const limited = await rateLimit("roadmap", clientKey(request));
+    if (!limited.allowed) {
+      return NextResponse.json(
+        { error: "You’ve built a few roadmaps already. Please try again in a little while." },
+        { status: 429, headers: { "Retry-After": String(limited.retryAfterSeconds) } },
+      );
+    }
+
     let body: unknown;
     try {
       body = await request.json();

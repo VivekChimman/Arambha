@@ -3,6 +3,7 @@ import { env } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import { createCheckoutSession, dodoConfigured } from "@/lib/dodo";
 import { setSubscription } from "@/lib/subscription";
+import { rateLimit, clientKey } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,7 +15,7 @@ export const dynamic = "force-dynamic";
  * activates the subscription on payment. When DODO is unconfigured, DEMO mode
  * activates the subscription immediately so the flow is testable without payments.
  */
-export async function POST() {
+export async function POST(request: Request) {
   try {
     const supabase = createClient();
     const {
@@ -22,6 +23,14 @@ export async function POST() {
     } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: "Please sign in first." }, { status: 401 });
+    }
+
+    const limited = await rateLimit("checkout", clientKey(request, user.id));
+    if (!limited.allowed) {
+      return NextResponse.json(
+        { error: "Too many attempts. Please try again in a little while." },
+        { status: 429, headers: { "Retry-After": String(limited.retryAfterSeconds) } },
+      );
     }
 
     const returnUrl = `${env.appUrl}/dashboard?subscribed=1`;
