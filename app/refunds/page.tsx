@@ -7,7 +7,7 @@ export default function RefundsPage() {
   return (
     <LegalStub
       title="Refund & Cancellation Policy"
-      summary="What happens with the one-time ₹199 report if it isn’t right for you. Fair terms, spelled out before you pay."
+      summary="What happens if the ₹199/month membership isn’t right for you. You can cancel any time and keep access until the period ends. If you haven’t generated a report in the current period, ask us and we’ll refund it in full — once a researched report is built, that month is used. Spelled out before you pay, not after."
     />
   );
 }

@@ -26,9 +26,10 @@ export function LegalStub({ title, summary }: { title: string; summary: string }
             <div className="card mt-8 p-6">
               <p className="text-sm leading-relaxed text-fg-mute">
                 <strong className="text-fg-dim">This page is in preparation.</strong> Arambha is
-                pre-launch, and this document is being finalised before we take any payment or store
-                any personal data. It will be published in full here before launch. Until then,
-                treat this as a placeholder, not a binding policy.
+                pre-launch and this document is being finalised — it will be published in full here
+                before we open to the public. Until then, treat it as a placeholder, not a binding
+                policy. If you have already created an account, see the summary above for what we
+                hold today, and write to us any time to have it deleted.
               </p>
             </div>
 
