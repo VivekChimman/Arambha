@@ -29,6 +29,9 @@ yarn-error.log*
 *.md
 !.env.example
 
+# product notes — local only, never tracked
+Core Product.txt
+
 # audit / reference (never committed)
 /checks/
 /reference_docs/
