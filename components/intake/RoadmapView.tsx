@@ -11,9 +11,13 @@ const ROLE_STYLE: Record<string, string> = {
 export function RoadmapView({
   roadmap,
   onRestart,
+  showUpsell = true,
 }: {
   roadmap: Roadmap;
-  onRestart: () => void;
+  /** Omitted when rendered from a server component (e.g. a saved report). */
+  onRestart?: () => void;
+  /** The sign-up CTA is for anonymous visitors only. */
+  showUpsell?: boolean;
 }) {
   return (
     <div className="mx-auto w-full max-w-3xl">
@@ -142,7 +146,7 @@ export function RoadmapView({
 
       {/* Teaser upsell — the free deterministic version prompts sign-up for the
           researched report (hidden once it's the researched report). */}
-      {!roadmap.researched && (
+      {!roadmap.researched && showUpsell && (
         <div className="ring-accent relative mt-10 overflow-hidden rounded-card border border-line bg-surface p-8">
           <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-radial-glow" />
           <div className="relative flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-center">
@@ -177,14 +181,20 @@ export function RoadmapView({
       </p>
 
       <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-        <Button onClick={onRestart} variant="outline" size="lg">
-          Start over
-        </Button>
+        {onRestart ? (
+          <Button onClick={onRestart} variant="outline" size="lg">
+            Start over
+          </Button>
+        ) : (
+          <LinkButton href="/start" variant="outline" size="lg">
+            Build another
+          </LinkButton>
+        )}
         <Link
-          href="/"
+          href={onRestart ? "/" : "/history"}
           className="inline-flex h-12 items-center justify-center rounded-pill px-6 text-[15px] font-medium text-fg-dim transition-colors hover:text-fg"
         >
-          Back to home
+          {onRestart ? "Back to home" : "Back to history"}
         </Link>
       </div>
     </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
   INTAKE_QUESTIONS,
@@ -18,13 +19,21 @@ type Phase = "form" | "submitting" | "result" | "error";
 const REVIEW_INDEX = INTAKE_QUESTIONS.length;
 const TOTAL_STEPS = INTAKE_QUESTIONS.length + 1; // + review
 
-export function IntakeFlow() {
+/**
+ * `signedIn` decides which engine runs: a signed-in user gets the researched
+ * report (quota-gated, saved to history) — anonymous visitors get the free
+ * deterministic teaser.
+ */
+export function IntakeFlow({ signedIn = false }: { signedIn?: boolean }) {
+  const router = useRouter();
   const [phase, setPhase] = useState<Phase>("form");
   const [mode, setMode] = useState<Mode | null>(null);
   const [stepIndex, setStepIndex] = useState(0);
   const [answers, setAnswers] = useState<Partial<Record<QuestionId, string>>>({});
   const [roadmap, setRoadmap] = useState<Roadmap | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
+  // Out of quota → the error state offers subscribing instead of retrying.
+  const [outOfQuota, setOutOfQuota] = useState(false);
 
   const headingRef = useRef<HTMLDivElement | null>(null);
 
@@ -69,18 +78,35 @@ export function IntakeFlow() {
   async function submit() {
     setPhase("submitting");
     setErrorMsg("");
+    setOutOfQuota(false);
     try {
-      const res = await fetch("/api/roadmap", {
+      const res = await fetch(signedIn ? "/api/reports" : "/api/roadmap", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...answers, mode: mode ?? "seeker" }),
       });
       const data = await res.json();
-      if (!res.ok || !data.roadmap) {
+
+      if (!res.ok) {
+        setOutOfQuota(Boolean(data.quotaExhausted));
         setErrorMsg(data.error ?? "We couldn’t build your roadmap. Please try again.");
         setPhase("error");
         return;
       }
+
+      // Signed-in: the report is saved — the saved page is the render surface.
+      if (data.id) {
+        router.push(`/history/${data.id}`);
+        return;
+      }
+
+      if (!data.roadmap) {
+        setErrorMsg("We couldn’t build your roadmap. Please try again.");
+        setPhase("error");
+        return;
+      }
+
+      // Teaser, or a signed-in report we generated but couldn't save.
       setRoadmap(data.roadmap as Roadmap);
       setPhase("result");
       window.scrollTo({ top: 0 });
@@ -144,25 +170,42 @@ export function IntakeFlow() {
       </header>
 
       <main id="main" className="shell relative py-14 sm:py-20">
-        {phase === "submitting" && <Submitting mode={mode ?? "seeker"} />}
+        {phase === "submitting" && <Submitting mode={mode ?? "seeker"} researching={signedIn} />}
 
         {phase === "error" && (
           <div className="mx-auto max-w-xl text-center">
             <p className="font-display text-6xl text-fg-mute">·</p>
-            <h1 className="mt-4 text-display-md text-fg">That didn’t go through.</h1>
+            <h1 className="mt-4 text-display-md text-fg">
+              {outOfQuota ? "You’re out of reports." : "That didn’t go through."}
+            </h1>
             <p className="mt-4 text-base leading-relaxed text-fg-dim">{errorMsg}</p>
             <div className="mt-8 flex justify-center gap-3">
-              <Button onClick={submit} size="lg">
-                Try again
-              </Button>
-              <LinkButton href="/" variant="outline" size="lg">
-                Back to home
-              </LinkButton>
+              {outOfQuota ? (
+                <>
+                  <LinkButton href="/subscribe" size="lg">
+                    See the plan
+                  </LinkButton>
+                  <LinkButton href="/history" variant="outline" size="lg">
+                    Your reports
+                  </LinkButton>
+                </>
+              ) : (
+                <>
+                  <Button onClick={submit} size="lg">
+                    Try again
+                  </Button>
+                  <LinkButton href="/" variant="outline" size="lg">
+                    Back to home
+                  </LinkButton>
+                </>
+              )}
             </div>
           </div>
         )}
 
-        {phase === "result" && roadmap && <RoadmapView roadmap={roadmap} onRestart={restart} />}
+        {phase === "result" && roadmap && (
+          <RoadmapView roadmap={roadmap} onRestart={restart} showUpsell={!signedIn} />
+        )}
 
         {phase === "form" && mode === null && (
           <ModeSelect
@@ -268,19 +311,22 @@ function ModeSelect({ onChoose }: { onChoose: (mode: Mode) => void }) {
   );
 }
 
-function Submitting({ mode }: { mode: Mode }) {
+function Submitting({ mode, researching }: { mode: Mode; researching: boolean }) {
   // Staged progress mirroring the real pipeline: query → search → extract →
   // ground → synthesize. Advanced on a timer (the backend doesn't stream), and
-  // the last stage holds until the response lands.
-  const stages = [
-    "Understanding where you are",
-    mode === "builder"
-      ? "Searching for real demand and what people pay for"
-      : "Searching the web for real, current options",
-    "Reading and verifying the sources",
-    "Grounding your three paths",
-    "Writing your 90-day plan",
-  ];
+  // the last stage holds until the response lands. The anonymous teaser skips
+  // research entirely, so it gets the short, honest version.
+  const stages = researching
+    ? [
+        "Understanding where you are",
+        mode === "builder"
+          ? "Searching for real demand and what people pay for"
+          : "Searching the web for real, current options",
+        "Reading and verifying the sources",
+        "Grounding your three paths",
+        "Writing your 90-day plan",
+      ]
+    : ["Understanding where you are", "Matching real options you’re eligible for", "Laying out your 90 days"];
   const [active, setActive] = useState(0);
 
   useEffect(() => {
@@ -293,11 +339,13 @@ function Submitting({ mode }: { mode: Mode }) {
     <div className="mx-auto max-w-md py-10" role="status" aria-live="polite">
       <p className="eyebrow">
         <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-        Researching live
+        {researching ? "Researching live" : "Building"}
       </p>
       <h1 className="mt-5 text-display-md text-fg">Building your roadmap.</h1>
       <p className="mt-3 text-sm leading-relaxed text-fg-mute">
-        We’re reading real sources for this — not guessing. It takes a few seconds.
+        {researching
+          ? "We’re reading real sources for this — not guessing. It takes a few seconds."
+          : "Matching you against options you’re actually eligible for."}
       </p>
 
       <ul className="mt-8 space-y-4">
