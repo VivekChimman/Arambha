@@ -1,48 +1,46 @@
 import { NextResponse } from "next/server";
 import { env } from "@/lib/env";
-import { validateAnswers } from "@/lib/intake";
-import { createOrder, markPaid } from "@/lib/payments";
+import { createClient } from "@/lib/supabase/server";
 import { createCheckoutSession, dodoConfigured } from "@/lib/dodo";
+import { setSubscription } from "@/lib/subscription";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * POST /api/checkout — start the ₹199 report unlock.
+ * POST /api/checkout — start the ₹199/month subscription (must be signed in).
  *
- * Stores the intake answers as a pending order, then either creates a DODO
- * hosted checkout session or, when DODO is unconfigured, DEMO-completes the
- * order so the flow is fully testable without real payments. Returns a `url`
- * the client redirects to (DODO checkout, or straight to the report in demo).
+ * Creates a DODO hosted subscription checkout for the current user; the webhook
+ * activates the subscription on payment. When DODO is unconfigured, DEMO mode
+ * activates the subscription immediately so the flow is testable without payments.
  */
-export async function POST(request: Request) {
+export async function POST() {
   try {
-    let body: unknown;
-    try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json({ error: "We couldn’t read that request." }, { status: 400 });
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Please sign in first." }, { status: 401 });
     }
 
-    const answers = validateAnswers(body);
-    if (!answers) {
-      return NextResponse.json({ error: "Please complete the intake first." }, { status: 400 });
-    }
-
-    const orderId = await createOrder(answers);
-    const returnUrl = `${env.appUrl}/report/${orderId}`;
+    const returnUrl = `${env.appUrl}/dashboard?subscribed=1`;
 
     if (!dodoConfigured()) {
-      // Demo mode — no real payment. Mark paid and send straight to the report.
-      await markPaid(orderId);
-      return NextResponse.json({ url: returnUrl, orderId, demo: true });
+      // Demo mode — no real payment. Activate a subscription and return to dashboard.
+      await setSubscription({
+        userId: user.id,
+        dodoSubscriptionId: `demo_${user.id}`,
+        status: "active",
+        resetUsage: true,
+      });
+      return NextResponse.json({ url: returnUrl, demo: true });
     }
 
-    const url = await createCheckoutSession({ orderId, returnUrl });
-    return NextResponse.json({ url, orderId, demo: false });
+    const url = await createCheckoutSession({ userId: user.id, email: user.email, returnUrl });
+    return NextResponse.json({ url, demo: false });
   } catch (e) {
     console.error("[checkout] error:", e instanceof Error ? e.message : e);
-    // Configured but the payment provider failed — never grant free access.
     return NextResponse.json(
       { error: "We couldn’t start checkout just now. Please try again." },
       { status: 502 },

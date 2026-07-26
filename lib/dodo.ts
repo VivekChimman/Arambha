@@ -22,16 +22,19 @@ function client(): DodoPayments {
   return new DodoPayments({ bearerToken: serverEnv.dodoApiKey, baseURL });
 }
 
-/** Create a hosted checkout session for an order; returns the checkout URL. */
+/** Create a hosted checkout session for the subscription; returns the checkout URL.
+ *  The user id rides in metadata so the webhook can link the subscription to the user. */
 export async function createCheckoutSession(opts: {
-  orderId: string;
+  userId: string;
+  email?: string | null;
   returnUrl: string;
 }): Promise<string> {
   const session = await client().checkoutSessions.create({
     // Field names per DODO docs; the SDK's exact param types aren't pinned here.
     product_cart: [{ product_id: serverEnv.dodoProductId, quantity: 1 }],
     return_url: opts.returnUrl,
-    metadata: { orderId: opts.orderId },
+    metadata: { userId: opts.userId },
+    ...(opts.email ? { customer: { email: opts.email } } : {}),
   } as never);
   const url = (session as { checkout_url?: string }).checkout_url;
   if (!url) throw new Error("dodo: no checkout_url in session");

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { env } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import { AppHeader } from "@/components/app/AppHeader";
+import { SubscribeButton } from "@/components/app/SubscribeButton";
 
 export const metadata: Metadata = { title: "Subscribe" };
 
@@ -42,8 +43,11 @@ export default async function SubscribePage() {
                   </li>
                 ))}
               </ul>
-              <p className="mt-8 text-sm text-fg-mute">
-                Checkout is being wired up — the subscribe button lands in the next step.
+              <div className="mt-8">
+                <SubscribeButton className="w-full" />
+              </div>
+              <p className="mt-3 text-center text-xs text-fg-mute">
+                One-tap cancel anytime. Billed monthly by DODO (global cards + UPI).
               </p>
             </div>
           </div>

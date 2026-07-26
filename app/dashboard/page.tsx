@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { env } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import { AppHeader } from "@/components/app/AppHeader";
+import { SubscribeButton } from "@/components/app/SubscribeButton";
 import { LinkButton } from "@/components/ui/Button";
 
 export const metadata: Metadata = { title: "Dashboard" };
@@ -96,12 +97,7 @@ export default async function DashboardPage() {
                   reports, follow-ups, and full history.
                 </p>
               </div>
-              <Link
-                href="/subscribe"
-                className="inline-flex h-12 shrink-0 items-center rounded-pill bg-accent-gradient px-6 text-[15px] font-medium text-bg"
-              >
-                Subscribe
-              </Link>
+              <SubscribeButton className="shrink-0" />
             </div>
           </div>
         )}

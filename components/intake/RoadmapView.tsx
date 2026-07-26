@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Roadmap } from "@/lib/composeRoadmap";
-import { Button } from "@/components/ui/Button";
+import { Button, LinkButton } from "@/components/ui/Button";
 
 const ROLE_STYLE: Record<string, string> = {
   Earn: "bg-accent/15 text-accent",
@@ -11,13 +11,9 @@ const ROLE_STYLE: Record<string, string> = {
 export function RoadmapView({
   roadmap,
   onRestart,
-  onUnlock,
-  unlocking,
 }: {
   roadmap: Roadmap;
   onRestart: () => void;
-  onUnlock?: () => void;
-  unlocking?: boolean;
 }) {
   return (
     <div className="mx-auto w-full max-w-3xl">
@@ -144,22 +140,23 @@ export function RoadmapView({
         </div>
       )}
 
-      {/* Report upsell — only on the free teaser (hidden once it's the paid report) */}
-      {!roadmap.researched && onUnlock && (
+      {/* Teaser upsell — the free deterministic version prompts sign-up for the
+          researched report (hidden once it's the researched report). */}
+      {!roadmap.researched && (
         <div className="ring-accent relative mt-10 overflow-hidden rounded-card border border-line bg-surface p-8">
           <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-radial-glow" />
           <div className="relative flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-center">
             <div className="max-w-md">
-              <h3 className="font-display text-2xl text-fg">Unlock your researched report</h3>
+              <h3 className="font-display text-2xl text-fg">Get this researched — free</h3>
               <p className="mt-2 text-sm leading-relaxed text-fg-dim">
-                We’ll research the web live for <span className="text-fg">your</span> situation —
-                specific courses, exams and jobs with real links and costs, cited so you can check
-                them. One-time <span className="accent-text font-medium">₹199</span>, no subscription.
+                Sign up and we’ll research the web live for <span className="text-fg">your</span>{" "}
+                situation — specific courses, exams and jobs with real links and costs, cited so you
+                can check them. Your <span className="accent-text font-medium">first report is free</span>.
               </p>
             </div>
-            <Button size="lg" className="shrink-0" onClick={onUnlock} disabled={unlocking}>
-              {unlocking ? "Starting checkout…" : "Unlock — ₹199"}
-            </Button>
+            <LinkButton href="/signup" size="lg" className="shrink-0">
+              Sign up free
+            </LinkButton>
           </div>
         </div>
       )}
