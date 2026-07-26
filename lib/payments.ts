@@ -29,8 +29,10 @@ async function read(key: string): Promise<string | null> {
   return mem.get(key) ?? null;
 }
 
-const orderKey = (id: string) => `order:${id}`;
-const reportKey = (id: string) => `report:${id}`;
+// Namespaced so this project can share one Upstash database with another
+// project without any chance of a key collision.
+const orderKey = (id: string) => `arambha:order:${id}`;
+const reportKey = (id: string) => `arambha:report:${id}`;
 
 /** Create a pending order holding the intake answers; returns its id. */
 export async function createOrder(answers: IntakeAnswers): Promise<string> {
