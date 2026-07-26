@@ -81,6 +81,13 @@ alter table public.reports        enable row level security;
 alter table public.chat_messages  enable row level security;
 
 -- Owner-only access (service role bypasses RLS automatically).
+-- Postgres has no "create policy if not exists", so each policy is dropped first —
+-- that makes this whole file safe to re-run (it is the same policy either way).
+drop policy if exists "own profile"      on public.profiles;
+drop policy if exists "own subscription" on public.subscriptions;
+drop policy if exists "own reports"      on public.reports;
+drop policy if exists "own messages"     on public.chat_messages;
+
 create policy "own profile"      on public.profiles      for all using (auth.uid() = id)      with check (auth.uid() = id);
 create policy "own subscription" on public.subscriptions for select using (auth.uid() = user_id);
 create policy "own reports"      on public.reports       for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
