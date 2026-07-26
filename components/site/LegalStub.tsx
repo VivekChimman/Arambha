@@ -29,7 +29,25 @@ export function LegalStub({ title, summary }: { title: string; summary: string }
                 pre-launch and this document is being finalised — it will be published in full here
                 before we open to the public. Until then, treat it as a placeholder, not a binding
                 policy. If you have already created an account, see the summary above for what we
-                hold today, and write to us any time to have it deleted.
+                hold today.
+              </p>
+            </div>
+
+            <div className="card mt-4 p-6">
+              <p className="text-sm leading-relaxed text-fg-mute">
+                <strong className="text-fg-dim">
+                  Data protection &amp; grievances (India — DPDP Act 2023).
+                </strong>{" "}
+                For any data-protection question, a copy of your data, or to have your account and
+                everything in it deleted, contact the owner,{" "}
+                <strong className="text-fg-dim">Vivekanand Chimman</strong>, at{" "}
+                <a
+                  href="mailto:chimmanvivek@gmail.com"
+                  className="text-accent underline decoration-line underline-offset-2 hover:opacity-80"
+                >
+                  chimmanvivek@gmail.com
+                </a>
+                . We aim to acknowledge within 72 hours and respond within 7 working days.
               </p>
             </div>
 
