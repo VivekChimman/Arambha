@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/Button";
+import { env } from "@/lib/env";
+import { friendlyAuthError } from "@/lib/authErrors";
+import { Button, LinkButton } from "@/components/ui/Button";
 
 export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const router = useRouter();
@@ -14,7 +16,11 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  // The callback route redirects here with ?error=auth when a code exchange fails.
+  const callbackFailed = params.get("error") === "auth";
+  const [error, setError] = useState(
+    callbackFailed ? "That sign-in link didn’t work. Please try again." : "",
+  );
   const [notice, setNotice] = useState("");
 
   const isSignup = mode === "signup";
@@ -47,7 +53,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         router.refresh();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
+      setError(friendlyAuthError(err));
     } finally {
       setBusy(false);
     }
@@ -56,26 +62,50 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   async function withGoogle() {
     setBusy(true);
     setError("");
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${location.origin}/auth/callback?next=${encodeURIComponent(next)}` },
-    });
-    if (error) {
-      setError(error.message);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: `${location.origin}/auth/callback?next=${encodeURIComponent(next)}` },
+      });
+      if (error) throw error;
+      // On success the browser redirects to Google.
+    } catch (err) {
+      setError(friendlyAuthError(err));
       setBusy(false);
     }
-    // On success the browser redirects to Google.
+  }
+
+  const brand = (
+    <Link href="/" className="flex items-center gap-2 font-display text-2xl text-fg">
+      <span aria-hidden className="grid h-8 w-8 place-items-center rounded-lg bg-accent-gradient text-sm font-semibold text-bg">
+        A
+      </span>
+      Arambha
+    </Link>
+  );
+
+  // Accounts can't work in a build without the Supabase keys. Say so honestly
+  // instead of showing a form that will always fail.
+  if (!env.hasSupabase) {
+    return (
+      <div className="w-full max-w-sm">
+        {brand}
+        <h1 className="mt-8 text-display-md text-fg">Accounts are temporarily unavailable</h1>
+        <p className="mt-3 text-sm text-fg-mute">
+          Sign-in is down for a moment — nothing you did caused this. You can still get a free
+          starter roadmap without an account.
+        </p>
+        <LinkButton href="/start" size="lg" className="mt-8 w-full">
+          Get a free roadmap
+        </LinkButton>
+      </div>
+    );
   }
 
   return (
     <div className="w-full max-w-sm">
-      <Link href="/" className="flex items-center gap-2 font-display text-2xl text-fg">
-        <span aria-hidden className="grid h-8 w-8 place-items-center rounded-lg bg-accent-gradient text-sm font-semibold text-bg">
-          A
-        </span>
-        Arambha
-      </Link>
+      {brand}
 
       <h1 className="mt-8 text-display-md text-fg">
         {isSignup ? "Create your account" : "Welcome back"}
