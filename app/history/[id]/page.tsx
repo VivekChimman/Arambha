@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { Roadmap } from "@/lib/composeRoadmap";
 import { AppHeader } from "@/components/app/AppHeader";
 import { RoadmapView } from "@/components/intake/RoadmapView";
+import { ReportChat } from "@/components/chat/ReportChat";
 
 export const metadata: Metadata = { title: "Your report" };
 export const dynamic = "force-dynamic";
@@ -30,6 +31,15 @@ export default async function ReportPage({ params }: { params: { id: string } })
 
   const roadmap = report.roadmap as Roadmap;
 
+  // Prior follow-ups for this report, oldest first.
+  const { data: chat } = await supabase
+    .from("chat_messages")
+    .select("role, content")
+    .eq("report_id", report.id)
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: true })
+    .limit(50);
+
   return (
     <>
       <AppHeader email={user.email} />
@@ -41,6 +51,16 @@ export default async function ReportPage({ params }: { params: { id: string } })
           </p>
           <div className="mt-6">
             <RoadmapView roadmap={roadmap} showUpsell={false} />
+          </div>
+
+          <div className="mx-auto w-full max-w-3xl">
+            <ReportChat
+              reportId={report.id}
+              initial={(chat ?? []).map((m) => ({
+                role: m.role === "assistant" ? ("assistant" as const) : ("user" as const),
+                content: m.content,
+              }))}
+            />
           </div>
         </div>
       </main>

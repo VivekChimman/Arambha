@@ -27,6 +27,8 @@ export const LIMITS = {
   roadmap: { limit: 20, windowSeconds: 60 * 60 },
   // Checkout: no LLM cost, but no reason for a burst either.
   checkout: { limit: 10, windowSeconds: 60 * 60 },
+  // Follow-up chat: one LLM call per turn, no research — generous but capped.
+  chat: { limit: 40, windowSeconds: 60 * 60 },
 } as const;
 
 /** Salted + hashed client identifier. Never returns anything reversible to an IP. */
