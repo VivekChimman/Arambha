@@ -5,6 +5,7 @@ import { env } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import { AppHeader } from "@/components/app/AppHeader";
 import { SubscribeButton } from "@/components/app/SubscribeButton";
+import { AccountControls } from "@/components/app/AccountControls";
 import { LinkButton } from "@/components/ui/Button";
 
 export const metadata: Metadata = { title: "Dashboard" };
@@ -101,6 +102,8 @@ export default async function DashboardPage() {
             </div>
           </div>
         )}
+
+        <AccountControls email={user.email ?? ""} active={active} />
       </main>
     </>
   );

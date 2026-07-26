@@ -41,6 +41,23 @@ export async function createCheckoutSession(opts: {
   return url;
 }
 
+/**
+ * Cancel a subscription at DODO.
+ *
+ * `immediate` ends it now — used when the account itself is being deleted, so
+ * nobody keeps being charged for an account that no longer exists. Otherwise it
+ * is scheduled for the next billing date, which lets the user keep the access
+ * they already paid for. DODO's webhook then updates our row either way.
+ */
+export async function cancelSubscription(
+  subscriptionId: string,
+  opts: { immediate: boolean },
+): Promise<void> {
+  await client().subscriptions.update(subscriptionId, {
+    ...(opts.immediate ? { status: "cancelled" } : { cancel_at_next_billing_date: true }),
+  } as never);
+}
+
 /** Verify a webhook (standardwebhooks). Returns the parsed payload or null. */
 export function verifyWebhook(
   rawBody: string,

@@ -29,6 +29,8 @@ export const LIMITS = {
   checkout: { limit: 10, windowSeconds: 60 * 60 },
   // Follow-up chat: one LLM call per turn, no research — generous but capped.
   chat: { limit: 40, windowSeconds: 60 * 60 },
+  // Account actions (export / cancel / delete) — no legitimate reason to repeat.
+  account: { limit: 10, windowSeconds: 60 * 60 },
 } as const;
 
 /** Salted + hashed client identifier. Never returns anything reversible to an IP. */
