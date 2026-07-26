@@ -20,8 +20,20 @@ const originOf = (v: string | undefined): string => {
   }
 };
 
+// Canonical origin. NEXT_PUBLIC_APP_URL wins; otherwise fall back to the URL
+// Vercel injects, so a forgotten env var can never silently become localhost in
+// production again — that bug shipped a localhost og:url AND a localhost DODO
+// return URL. Both reads (layout metadata, checkout) are server-side, where the
+// non-public VERCEL_* vars are available.
+const vercelOrigin = (): string => {
+  const host =
+    process.env.VERCEL_PROJECT_PRODUCTION_URL || // stable production domain
+    process.env.VERCEL_URL; // per-deployment (previews)
+  return host ? `https://${host}` : "";
+};
+
 export const env = {
-  appUrl: str(process.env.NEXT_PUBLIC_APP_URL, "http://localhost:3000"),
+  appUrl: str(process.env.NEXT_PUBLIC_APP_URL, vercelOrigin() || "http://localhost:3000"),
 
   // Selected model (a registry id from lib/config.ts). Empty → DEFAULT_MODEL_ID.
   selectedModelId: str(process.env.ARAMBHA_LLM_MODEL),
